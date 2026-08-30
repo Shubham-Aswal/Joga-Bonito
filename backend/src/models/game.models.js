@@ -29,6 +29,11 @@ const gameSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    avatar: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     defaultDifficulty: {
       type: Number,
       default: 1,
@@ -46,3 +51,4 @@ const gameSchema = new mongoose.Schema(
 );
 
 export const Game = mongoose.model('Game', gameSchema);
+export default Game;

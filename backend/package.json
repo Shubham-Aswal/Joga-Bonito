@@ -16,7 +16,8 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "npx nodemon server.js",
+    "seed:games": "node src/utils/seedGames.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

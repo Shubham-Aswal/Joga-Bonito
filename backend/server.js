@@ -1,9 +1,10 @@
 import app from "./src/app.js";
 import connectDB from "./src/db/db.js";
-import  dotenv from "dotenv"
+import dotenv from "dotenv";
+dotenv.config();
 dotenv.config({
-    path :"../.env"
-})
+  path: "../.env",
+});
 const PORT = process.env.PORT || 3000 ;
 
 const startServer = async () => {

@@ -27,6 +27,7 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/games", gameRoutes);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
