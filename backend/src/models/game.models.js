@@ -5,7 +5,6 @@ const gameSchema = new mongoose.Schema(
     gameId: {
       type: String,
       required: [true, 'Game ID is required'],
-      unique: true,
       lowercase: true,
       trim: true, // e.g., "memory-match", "market-basket", "routine-order"
     },

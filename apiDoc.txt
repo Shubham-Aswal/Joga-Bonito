@@ -1,0 +1,141 @@
+Joga-Bonito Backend API Documentation
+===================================
+
+Base URL:
+- Local dev: http://localhost:3000
+- The backend uses PORT from environment, default is 3000.
+
+Global response format
+----------------------
+Successful responses follow this shape:
+{
+  "statusCode": 200,
+  "success": true,
+  "message": "User logged in successfully",
+  "data": {
+    "user": {},
+    "accessToken": "..."
+  }
+}
+
+Error responses follow this shape:
+{
+  "success": false,
+  "statusCode": 400,
+  "message": "Invalid email or password",
+  "errors": []
+}
+
+Notes:
+- Validation failures return 422 and the error array contains field-wise messages.
+- Auth login/register responses also set cookies: accessToken and refreshToken.
+
+Routes available now
+--------------------
+
+1) GET /
+Description: Root endpoint to confirm the backend server is running.
+Request: No body
+Response (200):
+{
+  "message": "Joga-Bonito API is running"
+}
+
+2) GET /health
+Description: Health check for the backend service.
+Request: No body
+Response (200):
+{
+  "status": "ok",
+  "service": "joga-bonito-backend"
+}
+
+3) POST /api/auth/register
+Description: Register a new user.
+Request body:
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "123456",
+  "role": "user"
+}
+Validation rules:
+- name: required, minimum 2 characters
+- email: required, valid email format
+- password: required, minimum 6 characters
+- role: optional, accepted values are user/admin
+Success response (201):
+{
+  "statusCode": 201,
+  "success": true,
+  "message": "User registered successfully",
+  "data": {
+    "user": {
+      "_id": "64b4f7...",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "role": "user"
+    }
+  }
+}
+Possible errors:
+- 400: Name, email and password are required
+- 409: User already exists
+- 422: Validation failed
+
+4) POST /api/auth/login
+Description: Log in an existing user and return auth tokens.
+Request body:
+{
+  "email": "john@example.com",
+  "password": "123456"
+}
+Validation rules:
+- email: required, valid email format
+- password: required
+Success response (200):
+{
+  "statusCode": 200,
+  "success": true,
+  "message": "User logged in successfully",
+  "data": {
+    "user": {
+      "_id": "64b4f7...",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "role": "user"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+Cookies set on successful login:
+- accessToken
+- refreshToken
+Possible errors:
+- 400: Email and password are required
+- 400: Invalid email or password
+- 422: Validation failed
+
+5) logoutUser (defined in controller, not yet mounted as a route)
+Description: Logout logic exists in the auth controller, but the route is not currently registered in app.js.
+Current controller behavior:
+- clears accessToken and refreshToken cookies
+- sets req.user.refreshToken = ""
+- returns:
+{
+  "statusCode": 200,
+  "success": true,
+  "message": "User logged out successfully",
+  "data": null
+}
+This endpoint is not currently exposed through /api/auth/logout because no route is mounted yet.
+
+Summary of active endpoints
+---------------------------
+- GET /
+- GET /health
+- POST /api/auth/register
+- POST /api/auth/login
+
+All auth endpoints are under the /api/auth prefix.
