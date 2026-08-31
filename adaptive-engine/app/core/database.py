@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 _db_path: Optional[str] = None
 _init_done: bool = False
+_memory_holder: Optional[aiosqlite.Connection] = None
 
 CREATE_USERS = """
 CREATE TABLE IF NOT EXISTS users (
@@ -68,18 +69,48 @@ CREATE_INDEXES = [
 
 
 def get_db_path() -> str:
+    global _db_path
+    if _db_path is not None:
+        return _db_path
     return settings.get_sqlite_path()
 
 
+def _is_memory_path(path: str) -> bool:
+    return path == ":memory:" or "mode=memory" in path
+
+
+def _normalize_connect_path(path: str) -> tuple[str, bool]:
+    if path == ":memory:":
+        return "file:adaptive_mem?mode=memory&cache=shared", True
+    if path.startswith("file:"):
+        return path, True
+    return path, False
+
+
 async def init_db(db_path: Optional[str] = None) -> None:
-    global _init_done, _db_path
+    global _init_done, _db_path, _memory_holder
     path = db_path or get_db_path()
     _db_path = path
-    # Ensure directory exists for file DB
-    if path != ":memory:":
+
+    target_path, is_uri = _normalize_connect_path(path)
+
+    if not _is_memory_path(path) and not is_uri:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(path) as db:
-        await db.execute("PRAGMA journal_mode=WAL;")
+
+    if _is_memory_path(path):
+        if _memory_holder is not None:
+            try:
+                await _memory_holder.close()
+            except Exception:
+                pass
+        _memory_holder = await aiosqlite.connect(target_path, uri=is_uri)
+        db = _memory_holder
+    else:
+        db = await aiosqlite.connect(target_path, uri=is_uri)
+
+    try:
+        if not _is_memory_path(path):
+            await db.execute("PRAGMA journal_mode=WAL;")
         await db.execute("PRAGMA foreign_keys=ON;")
         await db.execute(CREATE_USERS)
         await db.execute(CREATE_SCORES)
@@ -87,24 +118,27 @@ async def init_db(db_path: Optional[str] = None) -> None:
         for idx_sql in CREATE_INDEXES:
             await db.execute(idx_sql)
         await db.commit()
+    finally:
+        if not _is_memory_path(path):
+            await db.close()
+
     _init_done = True
     logger.info(f"SQLite ready at {path}")
 
 
 async def close_db() -> None:
-    pass
+    global _init_done, _memory_holder, _db_path
+    if _memory_holder is not None:
+        try:
+            await _memory_holder.close()
+        except Exception as e:
+            logger.warning(f"Error closing in-memory DB: {e}")
+        _memory_holder = None
+    _init_done = False
 
 
 def is_db_available() -> bool:
-    # SQLite local is always available after init; check file or memory
-    if _init_done:
-        return True
-    # For tests with :memory:, init is done via init_db
-    path = get_db_path()
-    if path == ":memory:":
-        return _init_done
-    # File-based: if we haven't inited, we will on next connect
-    return True  # local file is always considered available
+    return _init_done
 
 
 from contextlib import asynccontextmanager
@@ -113,7 +147,8 @@ from contextlib import asynccontextmanager
 @asynccontextmanager
 async def get_connection():
     path = get_db_path()
-    conn = await aiosqlite.connect(path)
+    target_path, is_uri = _normalize_connect_path(path)
+    conn = await aiosqlite.connect(target_path, uri=is_uri)
     conn.row_factory = aiosqlite.Row
     await conn.execute("PRAGMA foreign_keys=ON;")
     await conn.execute("PRAGMA busy_timeout = 5000;")

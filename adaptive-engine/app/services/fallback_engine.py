@@ -61,7 +61,6 @@ def fallback_decision(
         if curr <= 1:
             recommended = 1
             decision = "maintain"
-            analysis = _pick("optimal_maintain")
             # Softer message at floor
             analysis = "Let's stay at this level and keep practicing at a comfortable pace."
             confidence = 0.75

@@ -98,7 +98,7 @@ async def call_groq(
             client = AsyncGroq(
                 api_key=settings.GROQ_API_KEY,
                 timeout=settings.GROQ_TIMEOUT,
-                max_retries=0,
+                max_retries=settings.GROQ_MAX_RETRIES,
             )
             completion = await client.chat.completions.create(
                 model=settings.GROQ_MODEL,
@@ -114,12 +114,13 @@ async def call_groq(
         except ImportError:
             # Fallback to sync client run in thread
             import asyncio
+            from groq import Groq
 
             def _sync_call():
                 sync_client = Groq(
                     api_key=settings.GROQ_API_KEY,
                     timeout=settings.GROQ_TIMEOUT,
-                    max_retries=0,
+                    max_retries=settings.GROQ_MAX_RETRIES,
                 )
                 return sync_client.chat.completions.create(
                     model=settings.GROQ_MODEL,
@@ -156,7 +157,7 @@ async def call_groq(
         except Exception as ve:
             raise LLMInvalidError(f"LLM response validation failed: {ve} — raw: {parsed}")
 
-        # Extra validation: recommended_level must be in allowed_range and decision must match delta
+        # Extra validation: recommended_level must be in allowed_range
         if llm_resp.recommended_level not in allowed_range:
             raise LLMInvalidError(
                 f"LLM recommended_level {llm_resp.recommended_level} not in allowed_range {allowed_range}"
@@ -164,10 +165,14 @@ async def call_groq(
 
         expected_decision = _decision_from_delta(current_level, llm_resp.recommended_level)
         if llm_resp.decision != expected_decision:
-            raise LLMInvalidError(
-                f"LLM decision {llm_resp.decision} mismatches level delta "
-                f"(current {current_level} -> recommended {llm_resp.recommended_level}, expected {expected_decision})"
-            )
+            # Boundary handling: if capped at 10 or floor at 1, normalize to maintain
+            if (current_level >= 10 and llm_resp.recommended_level >= 10) or (current_level <= 1 and llm_resp.recommended_level <= 1):
+                llm_resp.decision = "maintain"
+            else:
+                raise LLMInvalidError(
+                    f"LLM decision {llm_resp.decision} mismatches level delta "
+                    f"(current {current_level} -> recommended {llm_resp.recommended_level}, expected {expected_decision})"
+                )
 
         # Clamp analysis length if needed (Pydantic already checks, but be safe)
         if not (10 <= len(llm_resp.analysis) <= 500):

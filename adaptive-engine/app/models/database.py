@@ -44,7 +44,11 @@ async def get_or_create_user_on_score(db, user_id: str) -> dict[str, Any]:
             # Create new user record
             now = _now_iso()
             await conn.execute(
-                "INSERT OR IGNORE INTO users (user_id, current_level, trend, last_analysis, challenge_state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                """
+                INSERT INTO users (user_id, current_level, trend, last_analysis, challenge_state, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO NOTHING
+                """,
                 (user_id, 1, "new_user", "We'll start with an easier level and gradually adjust the challenge based on your performance.", "optimal", now, now),
             )
             await conn.commit()
@@ -87,14 +91,18 @@ async def update_user_adaptive(
         async with get_connection() as conn:
             now = _now_iso()
             await conn.execute(
-                "UPDATE users SET current_level = ?, trend = ?, last_analysis = ?, challenge_state = ?, updated_at = ? WHERE user_id = ?",
-                (max(1, min(10, recommended_level)), trend, analysis, challenge_state, now, user_id),
+                """
+                INSERT INTO users (user_id, current_level, trend, last_analysis, challenge_state, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    current_level = excluded.current_level,
+                    trend = excluded.trend,
+                    last_analysis = excluded.last_analysis,
+                    challenge_state = excluded.challenge_state,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, max(1, min(10, recommended_level)), trend, analysis, challenge_state, now, now),
             )
-            if conn.total_changes == 0:
-                await conn.execute(
-                    "INSERT INTO users (user_id, current_level, trend, last_analysis, challenge_state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (user_id, max(1, min(10, recommended_level)), trend, analysis, challenge_state, now, now),
-                )
             await conn.commit()
     except Exception as e:
         logger.warning(f"update_user_adaptive failed for {user_id}: {e}")

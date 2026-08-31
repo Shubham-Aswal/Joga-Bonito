@@ -41,9 +41,12 @@ def analyze_trend(scores: list[int]) -> str:
     avg_second = sum(second_half) / len(second_half) if second_half else scores[-1]
     half_diff = avg_second - avg_first
 
-    if delta >= TREND_DELTA_THRESHOLD or half_diff >= TREND_HALF_AVG_THRESHOLD:
+    is_improving = (delta >= TREND_DELTA_THRESHOLD or half_diff >= TREND_HALF_AVG_THRESHOLD) and delta >= 0 and half_diff >= 0
+    is_declining = (delta <= -TREND_DELTA_THRESHOLD or half_diff <= -TREND_HALF_AVG_THRESHOLD) and delta <= 0 and half_diff <= 0
+
+    if is_improving:
         return "improving"
-    if delta <= -TREND_DELTA_THRESHOLD or half_diff <= -TREND_HALF_AVG_THRESHOLD:
+    if is_declining:
         return "declining"
     return "stable"
 

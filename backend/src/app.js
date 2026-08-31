@@ -3,8 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import sessionRoutes from "./routes/session.routes.js";
-import cookieParser from "cookie-parser"
-import  gameRoutes from "./routes/game.routes.js"
+import gameRoutes from "./routes/game.routes.js";
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 const app = express();

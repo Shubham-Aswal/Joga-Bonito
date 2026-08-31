@@ -99,7 +99,7 @@ async def process_score(db, req: ScoreRequest) -> ScoreResponse:
     user_id = req.user_id.strip()
     # 1. Get or create user (ensures shared users doc exists, adaptive.current_level = 1 if new)
     user_doc = await get_or_create_user_on_score(db, user_id)
-    current_level = extract_current_level(user_doc)
+    current_level = req.level_played if req.level_played is not None else extract_current_level(user_doc)
 
     # 2. Store score (include extensible metrics if provided)
     extra = {k: getattr(req, k, None) for k in ("accuracy", "response_time", "mistakes", "hints_used", "session_duration", "cognitive_domain")}
